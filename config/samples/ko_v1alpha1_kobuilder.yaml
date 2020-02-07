@@ -3,5 +3,8 @@ kind: KoBuilder
 metadata:
   name: kobuilder-sample
 spec:
-  # Add fields here
-  foo: bar
+  registry: eu.gcr.io/ko-demo
+  serviceAccount: ko-builder-sa@ko-demo.iam.gserviceaccount.com
+  repository: github.com/feloy/kopond
+  checkout: master
+  configPath: /config

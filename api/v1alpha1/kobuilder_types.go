@@ -27,8 +27,16 @@ type KoBuilderSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of KoBuilder. Edit KoBuilder_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Registry is is the GCP registry used to pull built images
+	Registry string `json:"registry,omitempty"`
+	// ServiceAccount is the GCP service account having access to registry
+	ServiceAccount string `json:"serviceAccount,omitempty"`
+	// Repository is the GitHub repository where the Go sources reside
+	Repository string `json:"repository,omitempty"`
+	// Checkout is the branch / commit / tag of the repository to checkout
+	Checkout string `json:"checkout,omitempty"`
+	// ConfigPath is the path in the repository containing the manifests to create Kubernetes resources
+	ConfigPath string `json:"configPath,omitempty"`
 }
 
 // KoBuilderStatus defines the observed state of KoBuilder

@@ -1,0 +1,71 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
+  creationTimestamp: null
+  name: kobuilders.ko.feloy.dev
+spec:
+  group: ko.feloy.dev
+  names:
+    kind: KoBuilder
+    listKind: KoBuilderList
+    plural: kobuilders
+    singular: kobuilder
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      description: KoBuilder is the Schema for the kobuilders API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: KoBuilderSpec defines the desired state of KoBuilder
+          properties:
+            checkout:
+              description: Checkout is the branch / commit / tag of the repository
+                to checkout
+              type: string
+            configPath:
+              description: ConfigPath is the path in the repository containing the
+                manifests to create Kubernetes resources
+              type: string
+            registry:
+              description: Registry is is the GCP registry used to pull built images
+              type: string
+            repository:
+              description: Repository is the GitHub repository where the Go sources
+                reside
+              type: string
+            serviceAccount:
+              description: ServiceAccount is the GCP service account having access
+                to registry
+              type: string
+          type: object
+        status:
+          description: KoBuilderStatus defines the observed state of KoBuilder
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
