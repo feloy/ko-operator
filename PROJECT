@@ -1,0 +1,7 @@
+domain: feloy.dev
+repo: github.com/feloy/ko-operator
+resources:
+- group: ko
+  kind: KoBuilder
+  version: v1alpha1
+version: "2"

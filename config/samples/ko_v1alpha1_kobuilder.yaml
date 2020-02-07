@@ -1,0 +1,7 @@
+apiVersion: ko.feloy.dev/v1alpha1
+kind: KoBuilder
+metadata:
+  name: kobuilder-sample
+spec:
+  # Add fields here
+  foo: bar
