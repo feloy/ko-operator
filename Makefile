@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= feloy/ko-operator:1.0.0
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -39,7 +39,7 @@ deploy: manifests
 	kustomize build config/default | kubectl apply -f -
 
 dist: manifests
-	cd config/manager && kustomize edit set image controller=feloy/ko-operator
+	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default > dist/ko-operator.yaml
 
 # Undeploy controller from the configured Kubernetes cluster in ~/.kube/config
