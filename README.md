@@ -19,15 +19,7 @@ A Kubernetes operator to build and deploy go apps
 - Deploy the operator:
 
   ```sh
-  $ git clone https://github.com/feloy/ko-operator.git
-  # Build and containerize the operator, then push the image
-  $ make docker-build docker-push \
-     IMG=eu.gcr.io/$PROJECT/ko-operator
-  # Install the CRD
-  $ make install
-  customresourcedefinition.apiextensions.k8s.io/  kobuilders.ko.feloy.dev created
-  # Deploy the operator on the cluster
-  $ make deploy IMG=eu.gcr.io/$PROJECT/ko-operator
+  $ kubectl apply -f https://github.com/feloy/ko-operator/tree/master/dist/ko-operator.yaml
   ```
 
 - Create a Google Cloud service account with access to the registry of the project and get a JSON key for this service account, for example:

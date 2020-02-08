@@ -38,6 +38,10 @@ deploy: manifests
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | kubectl apply -f -
 
+dist: manifests
+	cd config/manager && kustomize edit set image controller=feloy/ko-operator
+	kustomize build config/default > dist/ko-operator.yaml
+
 # Undeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy: manifests
 	cd config/manager && kustomize edit set image controller=${IMG}
