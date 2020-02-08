@@ -19,7 +19,7 @@ A Kubernetes operator to build and deploy go apps
 - Deploy the operator:
 
   ```sh
-  $ kubectl apply -f https://github.com/feloy/ko-operator/tree/master/dist/ko-operator.yaml
+  $ kubectl apply -f https://raw.githubusercontent.com/feloy/ko-operator/master/dist/ko-operator.yaml
   ```
 
 - Create a Google Cloud service account with access to the registry of the project and get a JSON key for this service account, for example:
