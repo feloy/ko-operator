@@ -265,7 +265,7 @@ spec:
         - --enable-leader-election
         command:
         - /manager
-        image: feloy/ko-operator:1.0.0
+        image: feloy/ko-operator:release-1.0.0
         name: manager
         resources:
           limits:
