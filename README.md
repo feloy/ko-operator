@@ -53,10 +53,18 @@ A Kubernetes operator to build and deploy go apps
   Updated IAM policy for project [$PROJECT].
   ```
 
+- Create a namespace on which you want to deploy your app:
+
+  ```sh
+  $ kubectl create namespace my-ns
+  namespace/my-ns created
+  ```
+
 - Create a Kubernetes secret named `gcloud` with the key.json contents:
 
   ```sh
   $ kubectl create secret generic gcloud \
+     -n my-ns \
      --from-file=key.json
   secret/gcloud created
   ```
@@ -64,17 +72,17 @@ A Kubernetes operator to build and deploy go apps
 - Create a Kubernetes service account with credentials to create the resources specified in your repository, for example:
 
   ```sh
-  $ kubectl create sa ko-builder
+  $ kubectl create sa ko-builder -n my-ns
   serviceaccount/ko-builder created
 
   $ kubectl create clusterrole ko-builder-role \
    --verb=list,get,create,patch \
    --resource=deployments.apps,services,namespaces,serviceaccounts
 
-  $ kubectl create clusterrolebinding ko-builder-rolebinding \
+  $ kubectl create clusterrolebinding ko-builder-rolebinding-my-ns \
      --clusterrole=ko-builder-role \
-     --serviceaccount=default:ko-builder
-  clusterrolebinding.rbac.authorization.k8s.io/ko-builder-role created
+     --serviceaccount=my-ns:ko-builder
+  clusterrolebinding.rbac.authorization.k8s.io/ko-builder-rolebinding-my-ns created
   ```
 
 ### For each program you want to build and deploy
@@ -87,6 +95,7 @@ A Kubernetes operator to build and deploy go apps
   kind: KoBuilder
   metadata:
     name: kobuilder-sample
+    namespace: my-ns
   spec:
     # the registry on which to push built images
     registry: eu.gcr.io/PROJECT
@@ -112,26 +121,36 @@ A Kubernetes operator to build and deploy go apps
   > you can use [kubectl tree plugin](https://github.com/ahmetb/kubectl-tree) and see that the resources created are "owned" by the `KoBuilder` resource you created.
 
   ```sh
-  $ kubectl tree kobuilders.ko.feloy.dev kobuilder-sample
+  $ kubectl tree kobuilders.ko.feloy.dev kobuilder-sample -n my-ns
   NAMESPACE  NAME                                           READY  REASON        AGE
-  demoop     KoBuilder/kobuilder-sample                     -                    45s
-  demoop     ├─ConfigMap/kobuilder-sample-configxzljd       -                    45s
-  demoop     └─Job/kobuilder-sample-job-k8djj               -                    45s
-  demoop       └─Pod/kobuilder-sample-job-k8djj-7lnr7       False  PodCompleted  45s
-  demoop         ├─Deployment/echo-controller               -                    12s
-  demoop         │ └─ReplicaSet/echo-controller-cd9fd5c75   -                    12s
-  demoop         │   └─Pod/echo-controller-cd9fd5c75-p7gwl  True                 12s
-  demoop         └─Service/echo-service                     -                    12s
+  my-ns      KoBuilder/kobuilder-sample                     -                    45s
+  my-ns      ├─ConfigMap/kobuilder-sample-configxzljd       -                    45s
+  my-ns      └─Job/kobuilder-sample-job-k8djj               -                    45s
+  my-ns        └─Pod/kobuilder-sample-job-k8djj-7lnr7       False  PodCompleted  45s
+  my-ns          ├─Deployment/echo-controller               -                    12s
+  my-ns          │ └─ReplicaSet/echo-controller-cd9fd5c75   -                    12s
+  my-ns          │   └─Pod/echo-controller-cd9fd5c75-p7gwl  True                 12s
+  my-ns          └─Service/echo-service                     -                    12s
+  ```
+
+- You can later update your deployment with a new release of your app by patching the `KoBuilder` resource:
+
+  ```sh
+  $ kubectl patch kobuilders.ko.feloy.dev \
+     -n my-ns kobuilder-sample \
+     -p '{"spec":{"checkout":"2.0.0"}}' \
+     --type=merge
+  kobuilder.ko.feloy.dev/kobuilder-sample patched
   ```
 
 - Thanks to these owner references, the created objects will be deleted when you delete the `KoBuilder` resource:
 
   ```sh
-  $ kubectl delete kobuilders kobuilder-sample
+  $ kubectl delete kobuilders kobuilder-sample -n my-ns
   kobuilder.ko.feloy.dev "kobuilder-sample" deleted
   # After several seconds
-  $ kubectl get deployments
+  $ kubectl get deployments -n my-ns
   No resources found in demoop namespace.
-  $ kubectl get svc
+  $ kubectl get svc -n my-ns
   No resources found in demoop namespace.
   ```
