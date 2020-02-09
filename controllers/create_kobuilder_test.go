@@ -7,6 +7,7 @@ import (
 	kov1alpha1 "github.com/feloy/ko-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,7 +15,7 @@ import (
 
 var _ = Describe("KoBuilder controller", func() {
 
-	const timeout = time.Second * 30
+	const timeout = time.Second * 10
 	const interval = time.Second * 1
 
 	BeforeEach(func() {
@@ -37,12 +38,12 @@ var _ = Describe("KoBuilder controller", func() {
 				Name:      "my-ko-builder-config",
 				Namespace: "my-ns",
 			}
-			/*
-				jobKey := types.NamespacedName{
-					Name:      "my-ko-builder-job",
-					Namespace: "my-ns",
-				}
-			*/
+
+			jobKey := types.NamespacedName{
+				Name:      "my-ko-builder-job",
+				Namespace: "my-ns",
+			}
+
 			created := &kov1alpha1.KoBuilder{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -60,27 +61,22 @@ var _ = Describe("KoBuilder controller", func() {
 			// Create
 			Expect(k8sClient.Create(context.Background(), created)).Should(Succeed())
 
-			By("Expecting configmap created")
-			Eventually(func() error {
+			By("Expecting configmap created with correct data")
+			Eventually(func() bool {
 				f := &corev1.ConfigMap{}
-				return k8sClient.Get(context.Background(), cmKey, f)
+				return k8sClient.Get(context.Background(), cmKey, f) == nil &&
+					f.Data["REGISTRY"] == "user/ko-builder" &&
+					f.Data["SERVICE_ACCOUNT"] == "account@project.com" &&
+					f.Data["REPOSITORY"] == "github/com/test/repo" &&
+					f.Data["CHECKOUT"] == "1.2.3" &&
+					f.Data["CONFIG_PATH"] == "/templates"
+			}, timeout, interval).Should(BeTrue())
+
+			By("Expecting job created")
+			Eventually(func() error {
+				f := &batchv1.Job{}
+				return k8sClient.Get(context.Background(), jobKey, f)
 			}, timeout, interval).Should(BeNil())
-
-			/*
-				// Delete
-				By("Expecting to delete successfully")
-				Eventually(func() error {
-					f := &databricksv1.Dcluster{}
-					k8sClient.Get(context.Background(), key, f)
-					return k8sClient.Delete(context.Background(), f)
-				}, timeout, interval).Should(Succeed())
-
-				By("Expecting to delete finish")
-				Eventually(func() error {
-					f := &databricksv1.Dcluster{}
-					return k8sClient.Get(context.Background(), key, f)
-				}, timeout, interval).ShouldNot(Succeed())
-			*/
 		})
 	})
 })
