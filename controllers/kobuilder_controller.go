@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,28 +79,10 @@ func (r *KoBuilderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *KoBuilderReconciler) applyConfig(ctx context.Context, log logr.Logger, kobuilder *kov1alpha1.KoBuilder) (name string, err error) {
 
-	configName := fmt.Sprintf("%s-config", kobuilder.Name)
-	expected := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configName,
-			Namespace: kobuilder.Namespace,
-		},
-		Data: map[string]string{
-			"REGISTRY":         kobuilder.Spec.Registry,
-			"SERVICE_ACCOUNT":  kobuilder.Spec.ServiceAccount,
-			"REPOSITORY":       kobuilder.Spec.Repository,
-			"CHECKOUT":         kobuilder.Spec.Checkout,
-			"CONFIG_PATH":      kobuilder.Spec.ConfigPath,
-			"OWNER_APIVERSION": "kobuilders.ko.feloy.dev",
-			"OWNER_CONTROLLER": "false",
-			"OWNER_KIND":       "KoBuilder",
-			"OWNER_NAME":       kobuilder.Name,
-			"OWNER_UID":        string(kobuilder.UID),
-		},
-	}
+	expected := createConfigMap(kobuilder)
 
 	found := new(corev1.ConfigMap)
-	err = r.Get(ctx, types.NamespacedName{Name: configName, Namespace: kobuilder.Namespace}, found)
+	err = r.Get(ctx, types.NamespacedName{Name: expected.ObjectMeta.Name, Namespace: expected.ObjectMeta.Namespace}, found)
 	if err == nil {
 		// ConfigMap found
 		// TODO test if different than expected
@@ -123,84 +104,10 @@ func (r *KoBuilderReconciler) applyConfig(ctx context.Context, log logr.Logger, 
 
 func (r *KoBuilderReconciler) applyKoBuilderJob(ctx context.Context, log logr.Logger, kobuilder *kov1alpha1.KoBuilder, configName string) (err error) {
 
-	jobName := fmt.Sprintf("%s-job", kobuilder.Name)
-
-	expected := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: kobuilder.Namespace,
-		},
-		Spec: batchv1.JobSpec{
-
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "ko-builder",
-					RestartPolicy:      "Never",
-					Containers: []corev1.Container{
-						{
-							Name:  "ko-builder",
-							Image: "feloy/ko-builder:release-1.4.0",
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									ConfigMapRef: &corev1.ConfigMapEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: configName,
-										},
-									},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									MountPath: "/etc/gcloud",
-									Name:      "gcloud",
-									ReadOnly:  true,
-								},
-								{
-									MountPath: "/pod",
-									Name:      "pod-info",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "gcloud",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: "gcloud",
-								},
-							},
-						},
-						{
-							Name: "pod-info",
-							VolumeSource: corev1.VolumeSource{
-								DownwardAPI: &corev1.DownwardAPIVolumeSource{
-									Items: []corev1.DownwardAPIVolumeFile{
-										{
-											Path: "name",
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.name",
-											},
-										},
-										{
-											Path: "uid",
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.uid",
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	expected := createJob(kobuilder, configName)
 
 	found := new(batchv1.Job)
-	err = r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: kobuilder.Namespace}, found)
+	err = r.Get(ctx, types.NamespacedName{Name: expected.ObjectMeta.Name, Namespace: expected.ObjectMeta.Namespace}, found)
 	if err == nil {
 		// Job found
 		// TODO test if different than expected
