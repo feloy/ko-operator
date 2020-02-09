@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
@@ -85,12 +86,30 @@ func (r *KoBuilderReconciler) applyConfig(ctx context.Context, log logr.Logger, 
 	err = r.Get(ctx, types.NamespacedName{Name: expected.ObjectMeta.Name, Namespace: expected.ObjectMeta.Namespace}, found)
 	if err == nil {
 		// ConfigMap found
-		// TODO test if different than expected
+		if !reflect.DeepEqual(expected.Data, found.Data) {
+			// different than expected
+			//   => update the ConfigMap
+			controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
+			err = r.Update(ctx, expected)
+			if err != nil {
+				return
+			}
+			//   => set the status of kobuilder as Updated
+			r.setState(ctx, log, kobuilder, kov1alpha1.Updated)
+			name = found.Name
+			return
+		}
+
 		// do nothing
 		name = found.Name
 		return
 	}
+	err = client.IgnoreNotFound(err)
+	if err != nil {
+		return
+	}
 
+	// configmap not found => create it
 	controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
 
 	if err = r.Create(ctx, expected); err != nil {
@@ -109,16 +128,44 @@ func (r *KoBuilderReconciler) applyKoBuilderJob(ctx context.Context, log logr.Lo
 	found := new(batchv1.Job)
 	err = r.Get(ctx, types.NamespacedName{Name: expected.ObjectMeta.Name, Namespace: expected.ObjectMeta.Namespace}, found)
 	if err == nil {
+		deleteJob := false
 		// Job found
-		// TODO test if different than expected
-		// do nothing
+		// Set kobuilder state depending on job status
+		var state kov1alpha1.KoBuilderState
+		if found.Status.Succeeded == 1 {
+			state = kov1alpha1.Deployed
+			deleteJob = true
+		} else if found.Status.Failed == 1 {
+			state = kov1alpha1.ErrorDeploying
+			deleteJob = true
+		} else if found.Status.Active == 1 {
+			state = kov1alpha1.Deploying
+		} else {
+			log.Info(fmt.Sprintf("Unknown state! job status: %+v", found.Status))
+			state = kov1alpha1.Unknown
+		}
+		err = r.setState(ctx, log, kobuilder, state)
+
+		// If job is terminated (in success or error) => delete it
+		if deleteJob {
+			r.Delete(ctx, found)
+		}
+		return
+	}
+	err = client.IgnoreNotFound(err)
+	if err != nil {
 		return
 	}
 
-	controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
+	// Job not found
 
-	if err = r.Create(ctx, expected); err != nil {
-		log.Error(err, "unable to create job for kobuilder")
+	if kobuilder.Status.State == "" || kobuilder.Status.State == kov1alpha1.Updated {
+		log.Info("Job not found and status empty or updated => Create job")
+		controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
+
+		if err = r.Create(ctx, expected); err != nil {
+			log.Error(err, "unable to create job for kobuilder")
+		}
 	}
 	return
 }

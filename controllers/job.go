@@ -16,7 +16,6 @@ func createJob(kobuilder *kov1alpha1.KoBuilder, configName string) *batchv1.Job 
 			Namespace: kobuilder.Namespace,
 		},
 		Spec: batchv1.JobSpec{
-
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "ko-builder",

@@ -39,13 +39,33 @@ type KoBuilderSpec struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
+// KoBuilderState is the state of the KoBuilder
+type KoBuilderState string
+
+const (
+	// Deploying state when the job has been created and is not yet completed
+	Deploying KoBuilderState = "Deploying"
+	// Deployed state when the job has completed
+	Deployed KoBuilderState = "Deployed"
+	// ErrorDeploying state when the job has failed
+	ErrorDeploying KoBuilderState = "ErrorDeploying"
+	// Unknown state when the state is unknown
+	Unknown KoBuilderState = "Unknown"
+	// Updated state when the config has just been updated
+	Updated KoBuilderState = "Updated"
+)
+
 // KoBuilderStatus defines the observed state of KoBuilder
 type KoBuilderStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// State indicates if the builder is "Deploying" or has "Deployed" the resources
+	State KoBuilderState `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // KoBuilder is the Schema for the kobuilders API
 type KoBuilder struct {
