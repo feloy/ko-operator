@@ -1,6 +1,6 @@
 # ko-operator
 
-A Kubernetes operator to build and deploy go apps
+A Kubernetes operator to build and deploy go apps using [ko](https://github.com/google/ko).
 
 `ko-operator` is a Kubernetes operator using the [ko-builder](https://github.com/feloy/ko-builder) image to build and deploy go apps on Kubernetes with a minimum of configuration.
 
@@ -45,7 +45,11 @@ A Kubernetes operator to build and deploy go apps
   Updated IAM policy for project [$PROJECT].
   ```
 
-- Create a namespace on which you want to deploy your app:
+### Prepare namespaces
+
+For each namespace you want to deploy apps using the ko-opertor:
+
+- Create the namespace:
 
   ```sh
   $ kubectl create namespace my-ns
@@ -61,16 +65,20 @@ A Kubernetes operator to build and deploy go apps
   secret/gcloud created
   ```
 
-- Create a Kubernetes service account with credentials to create the resources specified in your repository, for example:
+- Create a Kubernetes service account named `ko-builder` with credentials to create the resources specified in your repository, for example:
 
   ```sh
+  # Create a service account in the namespace
   $ kubectl create sa ko-builder -n my-ns
   serviceaccount/ko-builder created
 
+  # Create the role with credentials necessary to work with resources
+  # This resource is non-namespaced, create it only once per cluster
   $ kubectl create clusterrole ko-builder-role \
    --verb=list,get,create,patch \
    --resource=deployments.apps,services,namespaces,serviceaccounts
 
+  # Bind the role to the service account on this namespace
   $ kubectl create clusterrolebinding ko-builder-rolebinding-my-ns \
      --clusterrole=ko-builder-role \
      --serviceaccount=my-ns:ko-builder
@@ -92,11 +100,11 @@ A Kubernetes operator to build and deploy go apps
     # the registry on which to push built images
     registry: eu.gcr.io/PROJECT
     # a Google Cloud service account with access to registry
-    serviceAccount:   ko-builder-sa@PROJECT.iam.gserviceaccount.com
+    serviceAccount: ko-builder-sa@PROJECT.iam.gserviceaccount.com
     # repository containing sources to build
     repository: github.com/feloy/kopond
     # branch / tag / commit to checkout
-    checkout: "1.0.0"
+    checkout: "2.1.0"
     # path containing manifests of resources to deploy
     configPath: /config
   ```
@@ -108,21 +116,39 @@ A Kubernetes operator to build and deploy go apps
   kobuilder.ko.feloy.dev/kobuilder-sample created
   ```
 
-- You can verify that the app has been deployed:
+> You can verify that the app is deploying or has been deployed by using the [kubectl tree plugin](https://github.com/ahmetb/kubectl-tree) and see that the resources created are "owned" by the `KoBuilder` resource you created.
 
-  > you can use [kubectl tree plugin](https://github.com/ahmetb/kubectl-tree) and see that the resources created are "owned" by the `KoBuilder` resource you created.
+- The app is deploying (you see a configmap containing configuration and a `KoBuilder` job deploying the app):
 
   ```sh
   $ kubectl tree kobuilders.ko.feloy.dev kobuilder-sample -n my-ns
-  NAMESPACE  NAME                                           READY  REASON        AGE
-  my-ns      KoBuilder/kobuilder-sample                     -                    45s
-  my-ns      ├─ConfigMap/kobuilder-sample-configxzljd       -                    45s
-  my-ns      └─Job/kobuilder-sample-job-k8djj               -                    45s
-  my-ns        └─Pod/kobuilder-sample-job-k8djj-7lnr7       False  PodCompleted  45s
-  my-ns          ├─Deployment/echo-controller               -                    12s
-  my-ns          │ └─ReplicaSet/echo-controller-cd9fd5c75   -                    12s
-  my-ns          │   └─Pod/echo-controller-cd9fd5c75-p7gwl  True                 12s
-  my-ns          └─Service/echo-service                     -                    12s
+  NAMESPACE  NAME                                 READY  REASON  AGE
+  my-ns      KoBuilder/kobuilder-sample           -              11s
+  my-ns      ├─ConfigMap/kobuilder-sample-config  -              11s
+  my-ns      └─Job/kobuilder-sample-job           -              11s
+  my-ns        └─Pod/kobuilder-sample-job-mcfkm   True           11s
+  ```
+
+- The app has been deployed (the Job finished and has been deleted, the configmap is still here for information and the resources from the repository has been deployed):
+
+  ```sh
+  $ kubectl tree kobuilders.ko.feloy.dev kobuilder-sample -n my-ns
+  NAMESPACE  NAME                                        READY  REASON  AGE 
+  my-ns      KoBuilder/kobuilder-sample                  -              2m3s
+  my-ns      ├─ConfigMap/kobuilder-sample-config         -              2m3s
+  my-ns      ├─Deployment/echo-controller                -              92s 
+  my-ns      │ └─ReplicaSet/echo-controller-777bc46cf8   -              92s 
+  my-ns      │   └─Pod/echo-controller-777bc46cf8-fjhhm  True           92s 
+  my-ns      └─Service/echo-service                      -              92s 
+  ```
+
+- You can also use `kubectl get kobuilders`:
+
+  ```sh
+  $ kubectl get kobuilders -w -n my-ns
+  NAME               REPOSITORY                CHECKOUT   STATE
+  kobuilder-sample   github.com/feloy/kopond   2.1.0      Deploying
+  kobuilder-sample   github.com/feloy/kopond   2.1.0      Deployed
   ```
 
 - You can later update your deployment with a new release of your app by patching the `KoBuilder` resource:
@@ -130,7 +156,7 @@ A Kubernetes operator to build and deploy go apps
   ```sh
   $ kubectl patch kobuilders.ko.feloy.dev \
      -n my-ns kobuilder-sample \
-     -p '{"spec":{"checkout":"2.0.0"}}' \
+     -p '{"spec":{"checkout":"2.2.0"}}' \
      --type=merge
   kobuilder.ko.feloy.dev/kobuilder-sample patched
   ```
