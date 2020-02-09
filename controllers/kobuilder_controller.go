@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -72,39 +73,62 @@ func (r *KoBuilderReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, e
 func (r *KoBuilderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kov1alpha1.KoBuilder{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }
 
 func (r *KoBuilderReconciler) applyConfig(ctx context.Context, log logr.Logger, kobuilder *kov1alpha1.KoBuilder) (name string, err error) {
 
-	config := &corev1.ConfigMap{
+	configName := fmt.Sprintf("%s-config", kobuilder.Name)
+	expected := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-config", kobuilder.Name),
-			Namespace:    kobuilder.Namespace,
+			Name:      configName,
+			Namespace: kobuilder.Namespace,
 		},
 		Data: map[string]string{
-			"REGISTRY":        kobuilder.Spec.Registry,
-			"SERVICE_ACCOUNT": kobuilder.Spec.ServiceAccount,
+			"REGISTRY":         kobuilder.Spec.Registry,
+			"SERVICE_ACCOUNT":  kobuilder.Spec.ServiceAccount,
+			"REPOSITORY":       kobuilder.Spec.Repository,
+			"CHECKOUT":         kobuilder.Spec.Checkout,
+			"CONFIG_PATH":      kobuilder.Spec.ConfigPath,
+			"OWNER_APIVERSION": "kobuilders.ko.feloy.dev",
+			"OWNER_CONTROLLER": "false",
+			"OWNER_KIND":       "KoBuilder",
+			"OWNER_NAME":       kobuilder.Name,
+			"OWNER_UID":        string(kobuilder.UID),
 		},
 	}
 
-	controllerutil.SetControllerReference(kobuilder, config, r.Scheme)
+	found := new(corev1.ConfigMap)
+	err = r.Get(ctx, types.NamespacedName{Name: configName, Namespace: kobuilder.Namespace}, found)
+	if err == nil {
+		// ConfigMap found
+		// TODO test if different than expected
+		// do nothing
+		name = found.Name
+		return
+	}
 
-	if err = r.Create(ctx, config); err != nil {
+	controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
+
+	if err = r.Create(ctx, expected); err != nil {
 		log.Error(err, "unable to create configmap for kobuilder")
 	}
 
-	name = config.Name
+	name = expected.Name
 
 	return
 }
 
 func (r *KoBuilderReconciler) applyKoBuilderJob(ctx context.Context, log logr.Logger, kobuilder *kov1alpha1.KoBuilder, configName string) (err error) {
 
-	job := &batchv1.Job{
+	jobName := fmt.Sprintf("%s-job", kobuilder.Name)
+
+	expected := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-job-", kobuilder.Name),
-			Namespace:    kobuilder.Namespace,
+			Name:      jobName,
+			Namespace: kobuilder.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 
@@ -115,21 +139,7 @@ func (r *KoBuilderReconciler) applyKoBuilderJob(ctx context.Context, log logr.Lo
 					Containers: []corev1.Container{
 						{
 							Name:  "ko-builder",
-							Image: "feloy/ko-builder:release-1.2.0",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "REPOSITORY",
-									Value: kobuilder.Spec.Repository,
-								},
-								{
-									Name:  "CHECKOUT",
-									Value: kobuilder.Spec.Checkout,
-								},
-								{
-									Name:  "CONFIG_PATH",
-									Value: kobuilder.Spec.ConfigPath,
-								},
-							},
+							Image: "feloy/ko-builder:release-1.4.0",
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -189,9 +199,18 @@ func (r *KoBuilderReconciler) applyKoBuilderJob(ctx context.Context, log logr.Lo
 		},
 	}
 
-	controllerutil.SetControllerReference(kobuilder, job, r.Scheme)
+	found := new(batchv1.Job)
+	err = r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: kobuilder.Namespace}, found)
+	if err == nil {
+		// Job found
+		// TODO test if different than expected
+		// do nothing
+		return
+	}
 
-	if err = r.Create(ctx, job); err != nil {
+	controllerutil.SetControllerReference(kobuilder, expected, r.Scheme)
+
+	if err = r.Create(ctx, expected); err != nil {
 		log.Error(err, "unable to create job for kobuilder")
 	}
 	return
