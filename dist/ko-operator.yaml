@@ -13,6 +13,16 @@ metadata:
   creationTimestamp: null
   name: kobuilders.ko.feloy.dev
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.repository
+    name: Repository
+    type: string
+  - JSONPath: .spec.checkout
+    name: Checkout
+    type: string
+  - JSONPath: .status.state
+    name: State
+    type: string
   group: ko.feloy.dev
   names:
     kind: KoBuilder

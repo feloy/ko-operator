@@ -66,6 +66,9 @@ type KoBuilderStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Repository",type=string,JSONPath=`.spec.repository`
+// +kubebuilder:printcolumn:name="Checkout",type=string,JSONPath=`.spec.checkout`
+// +kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 
 // KoBuilder is the Schema for the kobuilders API
 type KoBuilder struct {
