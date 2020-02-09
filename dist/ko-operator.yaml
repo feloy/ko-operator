@@ -20,6 +20,8 @@ spec:
     plural: kobuilders
     singular: kobuilder
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: KoBuilder is the Schema for the kobuilders API
@@ -61,6 +63,11 @@ spec:
           type: object
         status:
           description: KoBuilderStatus defines the observed state of KoBuilder
+          properties:
+            state:
+              description: State indicates if the builder is "Deploying" or has "Deployed"
+                the resources
+              type: string
           type: object
       type: object
   version: v1alpha1
@@ -265,7 +272,7 @@ spec:
         - --enable-leader-election
         command:
         - /manager
-        image: feloy/ko-operator:release-1.0.0
+        image: feloy/ko-operator:release-1.1.0
         name: manager
         resources:
           limits:
